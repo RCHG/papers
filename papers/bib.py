@@ -11,6 +11,7 @@ import itertools
 import six
 from six.moves import input as raw_input
 import re
+import boxea
 
 import bibtexparser
 
@@ -24,7 +25,9 @@ from papers.extract import fetch_bibtex_by_fulltext_crossref, fetch_bibtex_by_do
 from papers.encoding import latex_to_unicode, unicode_to_latex, unicode_to_ascii
 from papers.encoding import parse_file, format_file, standard_name, family_names, format_entries
 
-from papers.config import config, bcolors, checksum, move
+# from papers.config import config, bcolors, checksum, move
+
+from config import config, bcolors, checksum, move
 
 from papers.duplicate import check_duplicates, resolve_duplicates, conflict_resolution_on_insert, entry_diff
 from papers.duplicate import search_duplicates, list_duplicates, list_uniques, merge_files, edit_entries
@@ -759,6 +762,9 @@ def entry_filecheck(e, delete_broken=False, fix_mendeley=False,
 
 def main():
 
+    # This is strang, we have loaded a module that defines a config object and now
+    # we changed one of the values of the config object depending on the current dir.
+
     global_config = config.file
     local_config = '.papersconfig.json'
 
@@ -1174,10 +1180,9 @@ def main():
 
     def listcmd(o):
         import fnmatch   # unix-like match
-
         my = Biblio.load(o.bibtex, o.filesdir)
         entries = my.db.entries
-
+        total_entries = len(entries)
         if o.fuzzy:
             from rapidfuzz import fuzz
 
@@ -1254,8 +1259,8 @@ def main():
             key = lambda e: ''
         else:
             # key = lambda e: bcolors.OKBLUE+e['ID']+filetag(e)+':'+bcolors.ENDC
-            key = lambda e: nfiles(e)*(bcolors.BOLD)+bcolors.OKBLUE+e['ID']+bcolors.ENDC
-
+            #key = lambda e: nfiles(e)*(bcolors.BOLD)+bcolors.OKBLUE+e['ID']+bcolors.ENDC
+            key = lambda e: nfiles(e)*('<xBo>')+'<xBl>'+e['ID']+'<xE>'
         if o.edit:
             otherentries = [e for e in my.db.entries if e not in entries]
             try:
@@ -1285,6 +1290,9 @@ def main():
             for e in entries:
                 print(e['ID'].encode('utf-8'))
         elif o.one_liner:
+            lines_out = []
+            list_entries = len(entries)
+
             for e in entries:
                 tit = e['title'][:60]+ ('...' if len(e['title'])>60 else '')
                 info = []
@@ -1295,12 +1303,36 @@ def main():
                 if e.get('keywords',''):
                     tags.append(e['keywords'])
                 if n:
-                    info.append(bcolors.OKGREEN+'file:'+str(n)+bcolors.ENDC)
+                    info.append('<xG>'+'file:'+str(n)+'<xE>')
                 infotag = '('+', '.join(info)+')' if info else ''
-                print(key(e).ljust(45, ' '),'|', tit.ljust(65,' '), '|',infotag.ljust(50,' '), '|', 'tags: '+','.join(tags))
+                #print(key(e).ljust(45, ' '),'|', tit.ljust(65,' '), '|',infotag.ljust(50,' '), '|', 'tags: '+','.join(tags))
+                outstr = '| '+key(e).ljust(45, ' ') + '| ' + tit.ljust(65,' ') + '| ' +infotag.ljust(55,' ') + '|' + 'tags: '+','.join(tags)+' <xF>'
+
                 
+                lines_out.append(outstr)
+            
+            strdel= '<xBo><xBl><xE><xG><xE>'
+            strname= '[bib: '+config.cname+']'
+            maxlines = max([len(a) for a in lines_out])
+            lenlines = [len(a)  for a in lines_out]
+            str_number = '['+str(list_entries)+'/'+str(total_entries)+strdel+']'
+            len_number = len(str_number)
+            for iline, oline in enumerate(lines_out):
+                lines_out[iline] = lines_out[iline].replace('<xF>', (maxlines-lenlines[iline])*' '+'    |')
+            delta = len('<xBo><xBl><xE><xG><xE>')
+            header = '+---'+str_number+'---'+strname+(maxlines-4-len_number-len(strname)-3)*'-'+'+'
+            footer = '+-'+strdel+(maxlines-2-delta)*'-'+'+'
+            lines_out.insert(0,header)
+            lines_out.append(footer)
+            #print("\n".join(lines_out)) 
+            output = boxea.ascii_to_box(u"\n".join(lines_out))
+            output =  output.replace(strdel+'-','─')
+            output = output.replace('<xBo>',bcolors.BOLD)
+            output = output.replace('<xBl>',bcolors.OKBLUE)
+            output = output.replace('<xE>',bcolors.ENDC)
+            output = output.replace('<xG>',bcolors.OKGREEN)
+            print(output) 
         else:
-            print(entries)
             print(format_entries(entries))
 
 

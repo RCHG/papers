@@ -5,20 +5,21 @@ import bibtexparser
 import six
 from six.moves import input as raw_input
 from papers import logger
-
+import boxea
+import copy
 # GIT = False
 DRYRUN = False
 
 # config directory location
-HOME = os.environ.get('HOME',os.path.expanduser('~'))
+HOME        = os.environ.get('HOME'           , os.path.expanduser('~'))
 CONFIG_HOME = os.environ.get('XDG_CONFIG_HOME', os.path.join(HOME, '.config'))
-CACHE_HOME = os.environ.get('XDG_CACHE_HOME', os.path.join(HOME, '.cache'))
-DATA_HOME = os.environ.get('XDG_DATA_HOME', os.path.join(HOME, '.local','share'))
+CACHE_HOME  = os.environ.get('XDG_CACHE_HOME' , os.path.join(HOME, '.cache'))
+DATA_HOME   = os.environ.get('XDG_DATA_HOME'  , os.path.join(HOME, '.local','share'))
 
 
-CONFIG_FILE = os.path.join(CONFIG_HOME, 'papersconfig.json')
-DATA_DIR = os.path.join(DATA_HOME, 'papers')
-CACHE_DIR = os.path.join(CACHE_HOME, 'papers')
+CONFIG_FILE = os.path.join(CONFIG_HOME , 'papersconfig.json')
+DATA_DIR    = os.path.join(DATA_HOME   , 'papers')
+CACHE_DIR   = os.path.join(CACHE_HOME  , 'papers')
 
 
 # utils
@@ -52,14 +53,15 @@ class Config(object):
     """configuration class to specify system-wide collections and files-dir
     """
     def __init__(self, file=CONFIG_FILE, data=DATA_DIR, cache=CACHE_DIR,
-        bibtex=None, filesdir=None, gitdir=None, git=False):
-        self.file = file
-        self.data = data
+        bibtex=None, filesdir=None, gitdir=None, git=False, name=None):
+        self.file  = file
+        self.cname = name
+        self.data  = data
         self.cache = cache
+        self.gitdir = gitdir  or data
+        self.git    = git
         self.filesdir = filesdir or os.path.join(data, 'files')
         self.bibtex = bibtex  or os.path.join(data, 'papers.bib')
-        self.gitdir = gitdir  or data
-        self.git = git
 
     def collections(self):
         files = []
@@ -70,6 +72,7 @@ class Config(object):
 
     def save(self):
         json.dump({
+            "name":self.cname,
             "filesdir":self.filesdir,
             "bibtex":self.bibtex,
             "git":self.git,
@@ -83,7 +86,7 @@ class Config(object):
         self.filesdir = js.get('filesdir', self.filesdir)
         self.git = js.get('git', self.git)
         self.gitdir = js.get('gitdir', self.gitdir)
-
+        self.cname   = js.get('name', self.cname)
 
     def reset(self):
         cfg = type(self)()
@@ -126,69 +129,83 @@ class Config(object):
             raise ValueError('git is not initialized in '+self.gitdir)
 
     def status(self, check_files=False, verbose=False):
+        title = 'Papers configuration ['+str(self.cname)+']' 
 
         lines = []
-        lines.append(bcolors.BOLD+'papers configuration'+bcolors.ENDC)
-        if verbose:
-            lines.append('* configuration file: '+self.file)
-            lines.append('* cache directory:    '+self.cache)
-            # lines.append('* app data directory: '+self.data)
-            lines.append('* git-tracked:        '+str(self.git))
-            if self.git:
-                lines.append('* git directory :     '+self.gitdir)
+        lines.append(' ')
+        lines.append(' '+title )
+        lines.append(' ')
+        lines.append(' * config file: '+self.file)
+        lines.append(' * cache path:  '+self.cache)
+        lines.append(' * git-tracked: '+str(self.git))
+        if self.git:
+           lines.append(' * git path:    '+self.gitdir)
 
+        # CHECKING STATUS filesdir =================================
         if not os.path.exists(self.filesdir):
-            status = bcolors.WARNING+' (missing)'+bcolors.ENDC
+            fstatus = ' (missing)'
         elif not os.listdir(self.filesdir):
-            status = bcolors.WARNING+' (empty)'+bcolors.ENDC
+            fstatus = ' (empty)'
         elif check_files:
             file_count, folder_size = check_filesdir(self.filesdir)
-            status = bcolors.OKBLUE+" ({} files, {:.1f} MB)".format(file_count, folder_size/(1024*1024.0))+bcolors.ENDC
+            fstatus = " ({} files, {:.1f} MB)".format(file_count, folder_size/(1024*1024.0))
         else:
-            status = ''
+            fstatus = ''
 
         files = self.filesdir
-        lines.append('* files directory:    '+files+status)
+        lines.append(' * files path:  '+files+fstatus )
 
+
+        # CHECKING STATUS bibtex   =================================
         if not os.path.exists(self.bibtex):
-            status = bcolors.WARNING+' (missing)'+bcolors.ENDC
+            bstatus = ' (missing) '
         elif check_files:
             try:
                 bibtexstring = open(self.bibtex).read()
                 db = bibtexparser.loads(bibtexstring)
                 if len(db.entries):
-                    status = bcolors.OKBLUE+' ({} entries)'.format(len(db.entries))+bcolors.ENDC
+                    bstatus = ' ({} entries)'.format(len(db.entries))
+
                 else:
-                    status = bcolors.WARNING+' (empty)'+bcolors.ENDC
+                    bstatus = ' (empty) '
             except:
-                status = bcolors.FAIL+' (corrupted)'+bcolors.ENDC
+                bstatus = ' (corrupted) '
         elif os.path.getsize(self.bibtex) == 0:
-            status = bcolors.WARNING+' (empty)'+bcolors.ENDC
+            bstatus = ' (empty) '
         else:
-            status = ''
-        lines.append('* bibtex:            '+self.bibtex+status)
+            bstatus = ''
+        lines.append(' * bibtex path: '+self.bibtex+bstatus)
 
-        # if verbose:
-        #     collections = self.collections()
-        #     status = bcolors.WARNING+' none'+bcolors.ENDC if not collections else ''
-        #     lines.append('* other collections:'+status)
-        #     for i, nm in enumerate(collections):
-        #         if i > 10:
-        #             lines.append('    '+'({} more collections...)'.format(len(collections)-10))
-        #             break
-        #         status = ' (*)' if nm == self.collection else ''
-        #         lines.append('    '+nm+status)
+        return listlines(lines, fstatus, bstatus, title)
 
+def listlines(lines, fstatus, bstatus, title):
+    lenlines = [len(a) for a in lines]
+    maxlines = max(lenlines)
+    for line in lines:
+        spalines = [maxlines-len(a) for a in lines]
 
+    lines[0]='+'+'-'*maxlines+'--+'
+    for iline, line in enumerate(lines):
+        if iline>0:
+            lines[iline]='| '+lines[iline]+spalines[iline]*' '+' |'
+    lines.append(lines[0])
 
-        return '\n'.join(lines)
-
-
-
+    boxlines = boxea.ascii_to_box(u'\n'.join(lines))
+    if "missing" in fstatus or "empty" in fstatus:
+        boxlines = boxlines.replace(fstatus, bcolors.WARNING+fstatus+bcolors.ENDC)
+    else:
+        boxlines = boxlines.replace(fstatus, bcolors.OKBLUE+fstatus+bcolors.ENDC)
+    if "empty" in bstatus: 
+        boxlines = boxlines.replace(bstatus, bcolors.WARNING+bstatus+bcolors.ENDC)
+    elif "corrupted" in bstatus:
+        boxlines = boxlines.replace(bstatus, bcolors.FAIL+bstatus+bcolors.ENDC)
+    else:
+        boxlines = boxlines.replace(bstatus, bcolors.OKBLUE+bstatus+bcolors.ENDC)
+    boxlines = boxlines.replace(title,   bcolors.BOLD+title+bcolors.ENDC)
+    return boxlines
 
 config = Config()
 config.check_install()
-
 
 
 def cached(file, hashed_key=False):
@@ -218,8 +235,6 @@ def cached(file, hashed_key=False):
             return res
         return decorated
     return decorator
-
-
 
 
 def hash_bytestr_iter(bytesiter, hasher, ashexstr=False):
