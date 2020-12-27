@@ -14,14 +14,14 @@ This library has been forked from [perrette](https://github.com/perrette/papers)
 
 |        Date   | Change       |
 |-------------- | -------------|
-| *27-Dec-2020* | Removed the custom_headers when using the crossrefAPI because it was producing some errors (just temporal solution) |
-| *27-Dec-2020* | Adding a tags are keywords in the bibtex file. |
+| *27/Dec/2020* | Removed the custom_headers when using the crossrefAPI because it was producing some errors (just temporal solution) |
+| *27/Dec/2020* | Adding a tags are keywords in the bibtex file. |
 
 
 
 
 
-# papers (INFO from github user [perrette](https://github.com/perrette)
+# papers [ INFO from github user [perrette](https://github.com/perrette) ]
 
 Command-line tool to manage bibliography (pdfs + bibtex)
 > **WARNING**: This tool requires further development and testing, and is not production-ready as such (contributors welcome).
