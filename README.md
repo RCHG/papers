@@ -4,19 +4,29 @@
 <!-- [![PyPI version](https://badge.fury.io/py/papers.svg)](https://badge.fury.io/py/papers) -->
 <!-- [![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/perrette/papers/master/LICENSE) -->
 
-# papers
+
+# IMPORTANT
+
+This library has been forked from [perrette](https://github.com/perrette/papers) to make it working better for my personal uses and, eventually, contribute to the project. The main credit is for the **author of the library (https://github.com/perrette)**
+
+
+## Changes
+
+        Date   | Change
+-------------- | -------------
+ *27-Dec-2020* | Removed the custom_headers when using the crossrefAPI because it was producing some errors (just temporal solution)
+ *27-Dec-2020* | Adding a tags are keywords in the bibtex file.
+
+
+
+
+
+# papers (INFO from github user [perrette](https://github.com/perrette)
 
 Command-line tool to manage bibliography (pdfs + bibtex)
 > **WARNING**: This tool requires further development and testing, and is not production-ready as such (contributors welcome).
 
 
-## IMPORTANT
-
-This library has been forked from [perrette](https://github.com/perrette/papers). To make it working better for my uses and eventually, contribute to the project but the main credit is for the author of the library (https://github.com/perrette)
-
-### Changes
- - **27-Dec-2020** Removed the custom_headers when using the crossrefAPI because it was producing some errors (just temporal solution)
- - **27-Dec-2020** Adding a tags are keywords in the bibtex file.
 
 Motivation
 ----------
