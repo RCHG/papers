@@ -12,10 +12,10 @@ This library has been forked from [perrette](https://github.com/perrette/papers)
 
 ## Changes
 
-        Date   | Change
--------------- | -------------
- *27-Dec-2020* | Removed the custom_headers when using the crossrefAPI because it was producing some errors (just temporal solution)
- *27-Dec-2020* | Adding a tags are keywords in the bibtex file.
+|        Date   | Change       |
+|-------------- | -------------|
+| *27-Dec-2020* | Removed the custom_headers when using the crossrefAPI because it was producing some errors (just temporal solution) |
+| *27-Dec-2020* | Adding a tags are keywords in the bibtex file. |
 
 
 
