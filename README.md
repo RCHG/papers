@@ -15,8 +15,8 @@ Command-line tool to manage bibliography (pdfs + bibtex)
 This library has been forked from [perrette](https://github.com/perrette/papers). To make it working better for my uses and eventually, contribute to the project but the main credit is for the author of the library (https://github.com/perrette)
 
 ### Changes
- - **Dec-2020** Removed the custom_headers when using the crossrefAPI because it was producing some errors (just temporal solution)
- - **Dec-2020** Adding a beautify for the bibtex file.
+ - **27-Dec-2020** Removed the custom_headers when using the crossrefAPI because it was producing some errors (just temporal solution)
+ - **27-Dec-2020** Adding a tags are keywords in the bibtex file.
 
 Motivation
 ----------
