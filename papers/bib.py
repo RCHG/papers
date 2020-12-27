@@ -26,14 +26,15 @@ from papers.encoding import parse_file, format_file, standard_name, family_names
 
 from papers.config import config, bcolors, checksum, move
 
-from papers.duplicate import check_duplicates, resolve_duplicates, conflict_resolution_on_insert
+from papers.duplicate import check_duplicates, resolve_duplicates, conflict_resolution_on_insert, entry_diff
 from papers.duplicate import search_duplicates, list_duplicates, list_uniques, merge_files, edit_entries
 
 # DRYRUN = False
 
 # KEY GENERATION
 # ==============
-NAUTHOR = 2
+
+NAUTHOR = 1
 NTITLE = 0
 
 
@@ -67,7 +68,9 @@ def append_abc(key, keys=[]):
 def generate_key(entry, nauthor=NAUTHOR, ntitle=NTITLE, minwordlen=3, mintitlen=4, keys=None):
     # names = bibtexparser.customization.getnames(entry.get('author','unknown').lower().split(' and '))
     names = family_names(entry.get('author','unknown').lower())
-    authortag = '_'.join([nm for nm in names[:nauthor]]) 
+    authortag = '-'.join([nm.capitalize() for nm in names[:nauthor]])
+    if nauthor < len(names):
+        authortag = authortag + '-etal'
     yeartag = entry.get('year','0000') 
     if not ntitle or not entry.get('title',''):
         titletag = ''
@@ -76,7 +79,9 @@ def generate_key(entry, nauthor=NAUTHOR, ntitle=NTITLE, minwordlen=3, mintitlen=
         while len(u''.join(words[:ntitle])) < mintitlen and ntitle < len(words):
             ntitle += 1
         titletag = '_'.join(words[:ntitle])
-    key = authortag + yeartag + titletag
+    key_strings = [unicode_to_ascii(authortag), yeartag, unicode_to_ascii(titletag)]
+    key = '_'.join([a for a in key_strings if len(a)>0])
+
     if keys and key in keys: # and not isinstance(keys, set):
         key = append_abc(key, keys)
     return key
@@ -350,7 +355,7 @@ class Biblio(object):
                 logger.debug('fixed: exact duplicate')
                 return  # do nothing
 
-            logger.debug('conflic resolution: '+on_conflict)
+            logger.debug('conflict resolution: '+on_conflict)
             resolved = conflict_resolution_on_insert(candidate, entry, mode=on_conflict)
             self.entries.remove(candidate) # maybe in resolved entries
             for e in resolved:
@@ -380,6 +385,14 @@ class Biblio(object):
     def fetch_doi(self, doi, **kw):
         bibtex = fetch_bibtex_by_doi(doi)
         self.add_bibtex(bibtex, **kw)
+
+
+    def add_tag(self, entry, newtag):
+        if 'keywords' not in entry.keys():
+           entry['keywords'] = ''
+
+        if newtag not in entry['keywords']:
+            entry['keywords']= entry['keywords']+', '+newtag
 
 
     def add_pdf(self, pdf, attachments=None, rename=False, copy=False, search_doi=True, search_fulltext=True, scholar=False, **kw):
@@ -444,6 +457,13 @@ class Biblio(object):
         if os.path.exists(bibtex):
             shutil.copy(bibtex, backupfile(bibtex))
         open(bibtex, 'w').write(s)
+
+    #def savebeautify(self, bibtex):
+    #    s = self.format()
+    #    if os.path.exists(bibtex):
+    #        shutil.copy(bibtex, backupfile(bibtex))
+    #    open(bibtex, 'w').write(s)
+
 
 
     def check_duplicates(self, key=None, eq=None, mode='i'):
@@ -897,6 +917,17 @@ def main():
             config.bibtex = o.bibtex
             config.gitcommit()
 
+    #def savebib_beautify(my, o):
+    #    logger.info(u'save '+o.bibtex)
+    #    if papers.config.DRYRUN:
+    #        return
+    #    if my is not None:
+    #        my.savebeautify(o.bibtex)
+    #    # commit when operated on the default bibtex file provided during installation
+    #    # if config.git and os.path.samefile(config.bibtex, o.bibtex):
+    #    if config.git and os.path.realpath(config.bibtex) == os.path.realpath(o.bibtex):
+    #        config.bibtex = o.bibtex
+    #        config.gitcommit()
 
     # add
     # ===
@@ -1001,6 +1032,8 @@ def main():
     grp.add_argument('--nauthor', type=int, default=NAUTHOR, help='number of authors to include in key (default:%(default)s)')
     grp.add_argument('--ntitle', type=int, default=NTITLE, help='number of title words to include in key (default:%(default)s)')
     # grp.add_argument('--ascii-key', action='store_true', help='replace unicode characters with closest ascii')
+    grp.add_argument('-t','--tag', type=str, default='no-tag', help='Add a tag/keyword to an entry of the bibtex file.')
+
 
     grp = checkp.add_argument_group('crossref fetch and fix')
     grp.add_argument('--fix-doi', action='store_true', help='fix doi for some common issues (e.g. DOI: inside doi, .received at the end')
@@ -1036,6 +1069,12 @@ def main():
 
         if o.duplicates:
             my.check_duplicates(mode=o.mode)
+
+        if o.tag != 'no-tag':
+            for e in my.entries:
+                if o.keys and e.get('ID','') not in o.keys:
+                   continue
+                my.add_tag(e, o.tag ) 
 
         savebib(my, o)
 
@@ -1215,7 +1254,7 @@ def main():
             key = lambda e: ''
         else:
             # key = lambda e: bcolors.OKBLUE+e['ID']+filetag(e)+':'+bcolors.ENDC
-            key = lambda e: nfiles(e)*(bcolors.BOLD)+bcolors.OKBLUE+e['ID']+':'+bcolors.ENDC
+            key = lambda e: nfiles(e)*(bcolors.BOLD)+bcolors.OKBLUE+e['ID']+bcolors.ENDC
 
         if o.edit:
             otherentries = [e for e in my.db.entries if e not in entries]
@@ -1249,14 +1288,19 @@ def main():
             for e in entries:
                 tit = e['title'][:60]+ ('...' if len(e['title'])>60 else '')
                 info = []
+                tags = []
                 if e.get('doi',''):
                     info.append('doi:'+e['doi'])
                 n = nfiles(e)
+                if e.get('keywords',''):
+                    tags.append(e['keywords'])
                 if n:
                     info.append(bcolors.OKGREEN+'file:'+str(n)+bcolors.ENDC)
                 infotag = '('+', '.join(info)+')' if info else ''
-                print(key(e), tit, infotag)
+                print(key(e).ljust(45, ' '),'|', tit.ljust(65,' '), '|',infotag.ljust(50,' '), '|', 'tags: '+','.join(tags))
+                
         else:
+            print(entries)
             print(format_entries(entries))
 
 
@@ -1365,7 +1409,8 @@ def main():
     elif o.cmd == 'extract':
         extractcmd(o)
     else:
-        raise ValueError('this is a bug')
+        print("\n Please run papers with an argument.\n For help use > papers -h \n")
+        #raise ValueError('this is a bug')
 
 
 if __name__ == '__main__':

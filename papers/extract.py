@@ -16,7 +16,9 @@ from papers.config import cached
 from papers import logger
 from papers.encoding import family_names, latex_to_unicode
 
-my_etiquette = Etiquette('papers', papers.__version__, 'https://github.com/perrette/papers', 'mahe.perrette@gmail.com')
+my_etiquette = Etiquette('papers', papers.__version__,
+                         'https://github.com/rchg/papers',
+                         'r.checagarcia@gmail.com')
 
 
 class DOIParsingError(ValueError):
@@ -379,6 +381,7 @@ def fetch_bibtex_by_fulltext_crossref(txt, **kw):
 
 def fetch_entry(e):
     if 'doi' in e and isvaliddoi(e['doi']):
+        print(e)
         bibtex = fetch_bibtex_by_doi(e['doi'])
     else:
         kw = {}

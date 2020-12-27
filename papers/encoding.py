@@ -119,4 +119,7 @@ def standard_name(author):
 
 def family_names(author_field):
     authors = standard_name(author_field).split(' and ')
-    return [nm.split(',')[0] for nm in authors]
+    return [latex_to_unicode(nm.split(',')[0]) for nm in authors]
+
+
+
