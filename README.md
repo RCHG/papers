@@ -17,8 +17,23 @@ This library has been forked from [perrette](https://github.com/perrette/papers)
 | *27/Dec/2020* | Removed the custom_headers when using the crossrefAPI because it was producing some errors (just temporal solution) |
 | *27/Dec/2020* | Adding a tags are keywords in the bibtex file (added as check new command -t or --tags). |
 | *27/Dec/2020* | Added a box with extra information on list. Also added a name field to config files to described the specific bibtex library used |
+| *31/Dec/2020* | Added to config files the setting of keygen |
 
 
+
+## Examples
+
+Here an example of listing an specific year. It indicated the number of entries over the total and the bib library we are using (the name in the config json file).
+``
+> papers list -l -y 2019
+
+┌───[3/16]───[bib: LUT-Dust Study]───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Li-etal_2019                   │ Retrieval of aerosol composition directly from satellite and...  │ (doi:10.5194/acp-2019-208, file:1)             │tags:      │
+│ Li-etal_2019b                  │ Retrieval of aerosol components directly from satellite and ...  │ (doi:10.5194/acp-19-13409-2019, file:1)        │tags:      │
+│ Omari-etal_2019                │ Aerosol optical depth retrieval over the city of Abu Dhabi, ...  │ (doi:10.1016/j.apr.2019.01.015, file:1)        │tags:      │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+``
 
 
 # papers [ INFO from github user [perrette](https://github.com/perrette) ]

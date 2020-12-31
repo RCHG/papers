@@ -7,6 +7,8 @@ from six.moves import input as raw_input
 from papers import logger
 import boxea
 import copy
+from pretty import bcolors
+
 # GIT = False
 DRYRUN = False
 
@@ -25,16 +27,31 @@ CACHE_DIR   = os.path.join(CACHE_HOME  , 'papers')
 # utils
 # -----
 
-class bcolors:
-    # https://stackoverflow.com/a/287944/2192272
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
+def listlines(lines, fstatus, bstatus, title):
+    lenlines = [len(a) for a in lines]
+    maxlines = max(lenlines)
+    for line in lines:
+        spalines = [maxlines-len(a) for a in lines]
+
+    lines[0]='+'+'-'*maxlines+'--+'
+    for iline, line in enumerate(lines):
+        if iline>0:
+            lines[iline]='| '+lines[iline]+spalines[iline]*' '+' |'
+    lines.append(lines[0])
+
+    boxlines = boxea.ascii_to_box(u'\n'.join(lines))
+    if "missing" in fstatus or "empty" in fstatus:
+        boxlines = boxlines.replace(fstatus, bcolors.WARNING+fstatus+bcolors.ENDC)
+    else:
+        boxlines = boxlines.replace(fstatus, bcolors.OKBLUE+fstatus+bcolors.ENDC)
+    if "empty" in bstatus: 
+        boxlines = boxlines.replace(bstatus, bcolors.WARNING+bstatus+bcolors.ENDC)
+    elif "corrupted" in bstatus:
+        boxlines = boxlines.replace(bstatus, bcolors.FAIL+bstatus+bcolors.ENDC)
+    else:
+        boxlines = boxlines.replace(bstatus, bcolors.OKBLUE+bstatus+bcolors.ENDC)
+    boxlines = boxlines.replace(title,   bcolors.BOLD+title+bcolors.ENDC)
+    return boxlines
 
 
 def check_filesdir(folder):
@@ -53,7 +70,22 @@ class Config(object):
     """configuration class to specify system-wide collections and files-dir
     """
     def __init__(self, file=CONFIG_FILE, data=DATA_DIR, cache=CACHE_DIR,
-        bibtex=None, filesdir=None, gitdir=None, git=False, name=None):
+        bibtex=None, filesdir=None, gitdir=None, git=False, name=None, keygen=None):
+        """
+
+        Args:
+            file:
+            data:
+            cache:
+            bibtex:
+            filesdir:
+            gitdir:
+            git:
+            name:
+            keygen:
+        """
+
+        self.keygen= keygen
         self.file  = file
         self.cname = name
         self.data  = data
@@ -72,21 +104,23 @@ class Config(object):
 
     def save(self):
         json.dump({
-            "name":self.cname,
-            "filesdir":self.filesdir,
-            "bibtex":self.bibtex,
-            "git":self.git,
-            "gitdir":self.gitdir,
+            "keygen"  : self.keygen,
+            "name"    : self.cname,
+            "filesdir": self.filesdir,
+            "bibtex"  : self.bibtex,
+            "git"     : self.git,
+            "gitdir"  : self.gitdir,
             }, open(self.file, 'w'), sort_keys=True, indent=2, separators=(',', ': '))
 
 
     def load(self):
         js = json.load(open(self.file))
-        self.bibtex = js.get('bibtex', self.bibtex)
+        self.bibtex   = js.get('bibtex'  , self.bibtex)
         self.filesdir = js.get('filesdir', self.filesdir)
-        self.git = js.get('git', self.git)
-        self.gitdir = js.get('gitdir', self.gitdir)
-        self.cname   = js.get('name', self.cname)
+        self.git      = js.get('git'     , self.git)
+        self.gitdir   = js.get('gitdir'  , self.gitdir)
+        self.cname    = js.get('name'    , self.cname)
+        self.keygen   = js.get('keygen'  , self.keygen)
 
     def reset(self):
         cfg = type(self)()
@@ -178,31 +212,7 @@ class Config(object):
 
         return listlines(lines, fstatus, bstatus, title)
 
-def listlines(lines, fstatus, bstatus, title):
-    lenlines = [len(a) for a in lines]
-    maxlines = max(lenlines)
-    for line in lines:
-        spalines = [maxlines-len(a) for a in lines]
 
-    lines[0]='+'+'-'*maxlines+'--+'
-    for iline, line in enumerate(lines):
-        if iline>0:
-            lines[iline]='| '+lines[iline]+spalines[iline]*' '+' |'
-    lines.append(lines[0])
-
-    boxlines = boxea.ascii_to_box(u'\n'.join(lines))
-    if "missing" in fstatus or "empty" in fstatus:
-        boxlines = boxlines.replace(fstatus, bcolors.WARNING+fstatus+bcolors.ENDC)
-    else:
-        boxlines = boxlines.replace(fstatus, bcolors.OKBLUE+fstatus+bcolors.ENDC)
-    if "empty" in bstatus: 
-        boxlines = boxlines.replace(bstatus, bcolors.WARNING+bstatus+bcolors.ENDC)
-    elif "corrupted" in bstatus:
-        boxlines = boxlines.replace(bstatus, bcolors.FAIL+bstatus+bcolors.ENDC)
-    else:
-        boxlines = boxlines.replace(bstatus, bcolors.OKBLUE+bstatus+bcolors.ENDC)
-    boxlines = boxlines.replace(title,   bcolors.BOLD+title+bcolors.ENDC)
-    return boxlines
 
 config = Config()
 config.check_install()

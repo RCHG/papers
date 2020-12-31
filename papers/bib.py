@@ -43,12 +43,16 @@ NTITLE = 0
 
 def append_abc(key, keys=[]):
     """
-    >>> append_abc('Author2000')
-    'Author2000b'
-    >>> append_abc('Author2000b')
-    'Author2000c'
-    >>> append_abc('Author2000', ['Author2000', 'Author2000b'])
-    'Author2000c'
+    Append a letter to the bibtex key to have unique keys.
+     - append_abc('Author2000') = 'Author2000b'
+     - append_abc('Author2000b')= Author2000c'
+     - append_abc('Author2000', ['Author2000', 'Author2000b']) = 'Author2000c'
+    Args:
+        key:
+        keys:
+
+    Returns:
+
     """
     letters = list('abcdefghijklmnopqrstuvwxyz')
 
@@ -64,11 +68,29 @@ def append_abc(key, keys=[]):
         if Key not in keys:
             key = Key
             break
-    assert Key not in keys, 'not enough letters in the alphabets to solve key conflict? or maybe something went wrong...'
+    string_keys = 'not enough letters in the alphabets to solve key conflict? or maybe something went wrong...'
+
+    assert Key not in keys, string_keys
     return Key
 
 
-def generate_key(entry, nauthor=NAUTHOR, ntitle=NTITLE, minwordlen=3, mintitlen=4, keys=None):
+def generate_key(entry, nauthor=NAUTHOR, ntitle=NTITLE, minwordlen=3,
+                 mintitlen=4, keys=None, between="_"):
+    """
+    Generate a bibtex-key based on family names of the authors. It is included -etal.
+    The character between parts of the key is between
+    Args:
+        entry:
+        nauthor: number of authors in key
+        ntitle:  ?
+        minwordlen: Integer
+        mintitlen:  Integer
+        keys:
+
+    Returns:
+        key: string
+
+    """
     # names = bibtexparser.customization.getnames(entry.get('author','unknown').lower().split(' and '))
     names = family_names(entry.get('author','unknown').lower())
     authortag = '-'.join([nm.capitalize() for nm in names[:nauthor]])
@@ -83,7 +105,7 @@ def generate_key(entry, nauthor=NAUTHOR, ntitle=NTITLE, minwordlen=3, mintitlen=
             ntitle += 1
         titletag = '_'.join(words[:ntitle])
     key_strings = [unicode_to_ascii(authortag), yeartag, unicode_to_ascii(titletag)]
-    key = '_'.join([a for a in key_strings if len(a)>0])
+    key = between.join([a for a in key_strings if len(a)>0])
 
     if keys and key in keys: # and not isinstance(keys, set):
         key = append_abc(key, keys)
@@ -1320,13 +1342,12 @@ def main():
             for iline, oline in enumerate(lines_out):
                 lines_out[iline] = lines_out[iline].replace('<xF>', (maxlines-lenlines[iline])*' '+'    |')
             delta = len('<xBo><xBl><xE><xG><xE>')
-            header = '+---'+str_number+'---'+strname+(maxlines-4-len_number-len(strname)-3)*'-'+'+'
-            footer = '+-'+strdel+(maxlines-2-delta)*'-'+'+'
+            header = '\n+---'+str_number+'---'+strname+(maxlines-4-len_number-len(strname)-3)*'-'+'+'
+            footer = '+-'+strdel+(maxlines-2-delta)*'-'+'+\n'
             lines_out.insert(0,header)
             lines_out.append(footer)
-            #print("\n".join(lines_out)) 
             output = boxea.ascii_to_box(u"\n".join(lines_out))
-            output =  output.replace(strdel+'-','─')
+            output = output.replace(strdel+'-','─')
             output = output.replace('<xBo>',bcolors.BOLD)
             output = output.replace('<xBl>',bcolors.OKBLUE)
             output = output.replace('<xE>',bcolors.ENDC)
