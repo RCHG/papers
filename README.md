@@ -19,7 +19,8 @@ Here you have a list of the changes I have implemented (below you have the origi
 | *27/Dec/2020*  | Added a box with extra information on list.                                                                                        |
 | *27/Dec/2020*  | Added a name field to config files to described the specific bibtex library used                                                   |
 | *31/Dec/2020*  | Added to config files the setting of keygen                                                                                        |
-
+| *10/Jan/2020*  | Added to journal abbreviations (currently user has to download from JabRef repository and copy at /usr/local/                      |
+|                |                                                                                                                                    |
 
 # papers [ INFO from github user [perrette](https://github.com/perrette) ]
 
