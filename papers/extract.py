@@ -7,6 +7,7 @@ import six.moves.urllib.request
 import re
 import shutil
 import tempfile
+import uuid
 
 from crossref.restful import Works, Etiquette
 import bibtexparser
@@ -98,9 +99,17 @@ def parse_doi(txt):
 
     matches = REGEXP.findall(' '+txt.lower()+' ')
 
+    # print("Parse doi")
     if not matches:
-        raise DOIParsingError('parse_doi::no matches')
+        print(             "     ** Problem to find DOI in text of input file.")
+        custom_doi = input("     >>  please enter the DOI  (N to avoid) :")
+        if custom_doi=="N" or custom_doi=="n" or len(custom_doi)<=2:
+            raise DOIParsingError('parse_doi::no matches')
+        else:
+            return custom_doi.lower()
+    
 
+    #print("Found something ", matches)
     match = matches[0]
 
     # clean expression
@@ -110,8 +119,13 @@ def parse_doi(txt):
         doi = doi[:-len('.received')]
 
     # quality check 
-    if len(doi) <= 8:
-        raise DOIParsingError('failed to extract doi: '+doi)
+    if len(doi) <= 10:
+        print(             "     ** Problem to find DOI in text of input file.")
+        custom_doi = input("     >> please enter the DOI (N to avoid) :")
+        if custom_doi=="N" or custom_doi=="n" or len(custom_doi)<=2:
+            raise DOIParsingError('failed to extract doi: '+doi)
+        else:
+            return custom_doi.lower()
 
     return doi
 
@@ -124,7 +138,7 @@ def isvaliddoi(doi):
     return doi.lower() == doi2.lower()
 
 
-def pdfhead(pdf, maxpages=10, minwords=200, image=False):
+def pdfhead(pdf, maxpages=12, minwords=300, image=False):
     """ read pdf header
     """
     i = 0
@@ -143,7 +157,7 @@ def extract_pdf_doi(pdf, image=False):
     return parse_doi(pdfhead(pdf, image=image))
 
 
-def query_text(txt, max_query_words=200):
+def query_text(txt, max_query_words=300):
     # list of paragraphs
     paragraphs = re.split(r"\n\n", txt)
  
@@ -175,8 +189,19 @@ def extract_txt_metadata(txt, search_doi=True, search_fulltext=False, max_query_
             logger.debug('parse doi')
             doi = parse_doi(txt)
             logger.info('found doi:'+doi)
+            print(" -- Found DOI    ", doi)
             logger.debug('query bibtex by doi')
-            bibtex = fetch_bibtex_by_doi(doi)
+            try:
+                bibtex = fetch_bibtex_by_doi(doi)
+                print(" -- Found Bibtex !")
+            except AttributeError:
+                return '''@misc{{{doi},
+                doi = {{{doi}}},
+                author = {{{author}}},
+                title = "-- check-entry --",
+                url = {{http://dx.doi.org/{doi}}},
+                }}'''.format(doi=doi, author=str(uuid.uuid4())[0:10])
+
             logger.debug('doi query successful')
 
         except DOIParsingError as error:
@@ -207,7 +232,7 @@ def extract_txt_metadata(txt, search_doi=True, search_fulltext=False, max_query_
     return bibtex
 
 
-def extract_pdf_metadata(pdf, search_doi=True, search_fulltext=True, maxpages=10, minwords=200, image=False, **kw):
+def extract_pdf_metadata(pdf, search_doi=True, search_fulltext=True, maxpages=12, minwords=300, image=False, **kw):
     txt = pdfhead(pdf, maxpages, minwords, image=image)
     return extract_txt_metadata(txt, search_doi, search_fulltext, **kw)
 
@@ -356,7 +381,11 @@ def fetch_bibtex_by_fulltext_crossref(txt, **kw):
     #         break
     query = work.query(txt, **kw).sort('score')
     query_result = query.do_http_request('get', query.url, custom_header=str(query.etiquette)).text
-    results = json.loads(query_result)['message']['items']
+    print("We arrived here")
+    try:
+        results = json.loads(query_result)['message']['items']
+    except:
+        print(query_result)
 
     if len(results) > 1:
         maxscore = 0

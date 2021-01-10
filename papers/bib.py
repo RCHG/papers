@@ -11,7 +11,7 @@ import itertools
 import six
 from six.moves import input as raw_input
 import re
-import boxea
+import papers.boxea as boxea
 
 import bibtexparser
 
@@ -27,7 +27,8 @@ from papers.encoding import parse_file, format_file, standard_name, family_names
 
 # from papers.config import config, bcolors, checksum, move
 
-from config import config, bcolors, checksum, move
+from papers.config import config, checksum, move
+from papers.pretty import boxed_list, bcol, read_journal_abbrv
 
 from papers.duplicate import check_duplicates, resolve_duplicates, conflict_resolution_on_insert, entry_diff
 from papers.duplicate import search_duplicates, list_duplicates, list_uniques, merge_files, edit_entries
@@ -421,7 +422,8 @@ class Biblio(object):
 
 
     def add_pdf(self, pdf, attachments=None, rename=False, copy=False, search_doi=True, search_fulltext=True, scholar=False, **kw):
-        
+
+        print(" **** Processing file ", pdf, " to be added to current library ... \n")
         bibtex = extract_pdf_metadata(pdf, search_doi, search_fulltext, scholar=scholar)
 
         bib = bibtexparser.loads(bibtex)
@@ -660,7 +662,7 @@ class Biblio(object):
             e['ID'] = unicode_to_ascii(e['ID'])
 
         if interactive and e_old != e:
-            print(bcolors.OKBLUE+'*** UPDATE ***'+bcolors.ENDC)
+            print(bcol.BLUE+'*** UPDATE ***'+bcol.ENDC)
             print(entry_diff(e_old, e))
 
             if raw_input('update ? [Y/n] or [Enter] ').lower() not in ('', 'y'):
@@ -784,7 +786,7 @@ def entry_filecheck(e, delete_broken=False, fix_mendeley=False,
 
 def main():
 
-    # This is strang, we have loaded a module that defines a config object and now
+    # Here it has loaded a module that defines a config object and now
     # we changed one of the values of the config object depending on the current dir.
 
     global_config = config.file
@@ -1010,7 +1012,7 @@ def main():
             addp.exit(1)
 
         kw = {'on_conflict':o.mode, 'check_duplicate':not o.no_check_duplicate, 
-            'mergefiles':not o.no_merge_files, 'update_key':o.update_key}
+              'mergefiles':not o.no_merge_files, 'update_key':o.update_key}
 
         for file in o.file:
             try:
@@ -1054,7 +1056,7 @@ def main():
     checkp.add_argument('-f','--force', action='store_true', help='do not ask')
 
     grp = checkp.add_argument_group('entry key')
-    grp.add_argument('--fix-key', action='store_true', help='fix key based on author name and date (in case misssing or digit)')
+    grp.add_argument('--fix-key', action='store_true', help='fix key based on author name and date (in case missing or digit)')
     grp.add_argument('--key-ascii', action='store_true', help='replace keys unicode character with ascii')
     grp.add_argument('--auto-key', action='store_true', help='new, auto-generated key for all entries')
     grp.add_argument('--nauthor', type=int, default=NAUTHOR, help='number of authors to include in key (default:%(default)s)')
@@ -1163,6 +1165,7 @@ def main():
     mgrp = listp.add_mutually_exclusive_group()
     mgrp.add_argument('--strict', action='store_true', help='exact matching - instead of substring (only (*): title, author, abstract)')
     mgrp.add_argument('--fuzzy', action='store_true', help='fuzzy matching - instead of substring (only (*): title, author, abstract)')
+
     listp.add_argument('--fuzzy-ratio', type=int, default=FUZZY_RATIO, help='threshold for fuzzy matching of title, author, abstract (default:%(default)s)')
     listp.add_argument('--similarity', choices=['EXACT','GOOD','FAIR','PARTIAL','FUZZY'], default=DEFAULT_SIMILARITY, help='duplicate testing (default:%(default)s)')
     listp.add_argument('--invert', action='store_true')
@@ -1191,6 +1194,7 @@ def main():
     mgrp = grp.add_mutually_exclusive_group()
     mgrp.add_argument('-k','--key-only', action='store_true')
     mgrp.add_argument('-l', '--one-liner', action='store_true', help='one liner')
+    mgrp.add_argument('-ls', '--one-liner-short', action='store_true', help='one liner short')
     mgrp.add_argument('-f', '--field', nargs='+', help='specific field(s) only')
     grp.add_argument('--no-key', action='store_true')
 
@@ -1201,7 +1205,7 @@ def main():
     # grp.add_argument('--merge-duplicates', action='store_true')
 
     def listcmd(o):
-        import fnmatch   # unix-like match
+        import fnmatch                              # unix-like match
         my = Biblio.load(o.bibtex, o.filesdir)
         entries = my.db.entries
         total_entries = len(entries)
@@ -1233,7 +1237,7 @@ def main():
                 entries = [e for e in entries if requiresreview(e)]
                 for e in entries:
                     if 'doi' in e and not isvaliddoi(e['doi']):
-                        e['doi'] = bcolors.FAIL + e['doi'] + bcolors.ENDC
+                        e['doi'] = bcol.FAIL + e['doi'] + bcol.ENDC
         if o.has_file:
             entries = [e for e in entries if e.get('file','')]
         if o.no_file:
@@ -1280,9 +1284,7 @@ def main():
         if o.no_key:
             key = lambda e: ''
         else:
-            # key = lambda e: bcolors.OKBLUE+e['ID']+filetag(e)+':'+bcolors.ENDC
-            #key = lambda e: nfiles(e)*(bcolors.BOLD)+bcolors.OKBLUE+e['ID']+bcolors.ENDC
-            key = lambda e: nfiles(e)*('<xBo>')+'<xBl>'+e['ID']+'<xE>'
+            key = lambda e: '<xBo>'+'<xBl>'+e['ID']+'<xE>'
         if o.edit:
             otherentries = [e for e in my.db.entries if e not in entries]
             try:
@@ -1314,7 +1316,6 @@ def main():
         elif o.one_liner:
             lines_out = []
             list_entries = len(entries)
-
             for e in entries:
                 tit = e['title'][:60]+ ('...' if len(e['title'])>60 else '')
                 info = []
@@ -1324,41 +1325,43 @@ def main():
                 n = nfiles(e)
                 if e.get('keywords',''):
                     tags.append(e['keywords'])
-                if n:
+                if n>=0:
                     info.append('<xG>'+'file:'+str(n)+'<xE>')
-                infotag = '('+', '.join(info)+')' if info else ''
-                #print(key(e).ljust(45, ' '),'|', tit.ljust(65,' '), '|',infotag.ljust(50,' '), '|', 'tags: '+','.join(tags))
-                outstr = '| '+key(e).ljust(45, ' ') + '| ' + tit.ljust(65,' ') + '| ' +infotag.ljust(55,' ') + '|' + 'tags: '+','.join(tags)+' <xF>'
-
-                
+                infotag = '('+', '.join(info)+')' if len(info)>0 else ''
+                outstr = '| '+key(e).ljust(45, ' ') + '| ' + tit.ljust(65,' ') + '| ' +infotag.ljust(55,' ') + '|' + 'tags: '+','.join(tags)+' <xF>' 
                 lines_out.append(outstr)
-            
-            strdel= '<xBo><xBl><xE><xG><xE>'
-            strname= '[bib: '+config.cname+']'
-            maxlines = max([len(a) for a in lines_out])
-            lenlines = [len(a)  for a in lines_out]
-            str_number = '['+str(list_entries)+'/'+str(total_entries)+strdel+']'
-            len_number = len(str_number)
-            for iline, oline in enumerate(lines_out):
-                lines_out[iline] = lines_out[iline].replace('<xF>', (maxlines-lenlines[iline])*' '+'    |')
-            delta = len('<xBo><xBl><xE><xG><xE>')
-            header = '\n+---'+str_number+'---'+strname+(maxlines-4-len_number-len(strname)-3)*'-'+'+'
-            footer = '+-'+strdel+(maxlines-2-delta)*'-'+'+\n'
-            lines_out.insert(0,header)
-            lines_out.append(footer)
-            output = boxea.ascii_to_box(u"\n".join(lines_out))
-            output = output.replace(strdel+'-','─')
-            output = output.replace('<xBo>',bcolors.BOLD)
-            output = output.replace('<xBl>',bcolors.OKBLUE)
-            output = output.replace('<xE>',bcolors.ENDC)
-            output = output.replace('<xG>',bcolors.OKGREEN)
-            print(output) 
+
+            print(boxed_list(lines_out, config.cname, list_entries, total_entries))
+        elif o.one_liner_short:
+            lines_out = []
+            list_entries = len(entries)
+            for e in entries:
+                tit = e['title'][:67]+ ('...' if len(e['title'])>70 else '')
+                info = []
+                tags = []
+                if e.get('journal',''):
+                    jname = read_journal_abbrv(e['journal'])
+                    
+                    journal=jname[:27]+ ('...' if len(jname)>30 else '')
+                n = nfiles(e)
+                if e.get('keywords',''):
+                    tags.append(e['keywords'])
+                if n>=0:
+                    info.append('<xG>'+str(n)+'<xE>')
+                infotag = '('+', '.join(info)+')' if len(info)>0 else ''
+                outstr = '| '+key(e).ljust(45, ' ') + '| ' + tit.ljust(70,' ') +'| '+journal.ljust(30,' ')+  '| ' +infotag.ljust(10,' ') + ' |' + 'tags: '+','.join(tags)+' <xF>' 
+                lines_out.append(outstr)
+
+            print(boxed_list(lines_out, config.cname, list_entries, total_entries))
+
+
         else:
             print(format_entries(entries))
 
 
     # doi
     # ===
+
     doip = subparsers.add_parser('doi', description='parse DOI from PDF')
     doip.add_argument('pdf')
     doip.add_argument('--image', action='store_true', help='convert to image and use tesseract instead of pdftotext')

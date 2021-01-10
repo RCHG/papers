@@ -7,19 +7,18 @@
 
 # IMPORTANT
 
-This library has been forked from [perrette](https://github.com/perrette/papers) to make it working better for my personal uses and, eventually, contribute to the project. The main credit is for the **author of the library (https://github.com/perrette)**
-
+This library has been forked from [perrette](https://github.com/perrette/papers) to make it working better for my personal uses and, eventually, contribute to the project. The main credit is for the **author of the library (https://github.com/perrette)**.
+Here you have a list of the changes I have implemented (below you have the original papers information).
 
 ## Changes
 
-|        Date   | Change       |
-|-------------- | -------------|
-| *27/Dec/2020* | Removed the custom_headers when using the crossrefAPI because it was producing some errors (just temporal solution) |
-| *27/Dec/2020* | Adding a tags are keywords in the bibtex file (added as check new command -t or --tags). |
-| *27/Dec/2020* | Added a box with extra information on list. Also added a name field to config files to described the specific bibtex library used |
-| *31/Dec/2020* | Added to config files the setting of keygen |
-
-
+| Date           | Change                                                                                                                             |
+| :------------- | :----------------------------------------------------------------------------------------------------------------------------------|
+| *27/Dec/2020*  | Removed the custom_headers when using the crossrefAPI because it was producing some errors (a temporal solution)                   |
+| *27/Dec/2020*  | Adding a tags are keywords in the bibtex file (added as check new command -t or --tags).                                           |
+| *27/Dec/2020*  | Added a box with extra information on list.                                                                                        |
+| *27/Dec/2020*  | Added a name field to config files to described the specific bibtex library used                                                   |
+| *31/Dec/2020*  | Added to config files the setting of keygen                                                                                        |
 
 
 # papers [ INFO from github user [perrette](https://github.com/perrette) ]

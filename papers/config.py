@@ -1,13 +1,15 @@
-import os, json, shutil
-import subprocess as sp, sys, shutil
+import os
+import json
+import shutil
+import subprocess as sp
+import sys
 import hashlib
 import bibtexparser
 import six
 from six.moves import input as raw_input
 from papers import logger
-import boxea
-import copy
-from pretty import bcolors
+from papers.pretty import boxed_status
+
 
 # GIT = False
 DRYRUN = False
@@ -24,36 +26,6 @@ DATA_DIR    = os.path.join(DATA_HOME   , 'papers')
 CACHE_DIR   = os.path.join(CACHE_HOME  , 'papers')
 
 
-# utils
-# -----
-
-def listlines(lines, fstatus, bstatus, title):
-    lenlines = [len(a) for a in lines]
-    maxlines = max(lenlines)
-    for line in lines:
-        spalines = [maxlines-len(a) for a in lines]
-
-    lines[0]='+'+'-'*maxlines+'--+'
-    for iline, line in enumerate(lines):
-        if iline>0:
-            lines[iline]='| '+lines[iline]+spalines[iline]*' '+' |'
-    lines.append(lines[0])
-
-    boxlines = boxea.ascii_to_box(u'\n'.join(lines))
-    if "missing" in fstatus or "empty" in fstatus:
-        boxlines = boxlines.replace(fstatus, bcolors.WARNING+fstatus+bcolors.ENDC)
-    else:
-        boxlines = boxlines.replace(fstatus, bcolors.OKBLUE+fstatus+bcolors.ENDC)
-    if "empty" in bstatus: 
-        boxlines = boxlines.replace(bstatus, bcolors.WARNING+bstatus+bcolors.ENDC)
-    elif "corrupted" in bstatus:
-        boxlines = boxlines.replace(bstatus, bcolors.FAIL+bstatus+bcolors.ENDC)
-    else:
-        boxlines = boxlines.replace(bstatus, bcolors.OKBLUE+bstatus+bcolors.ENDC)
-    boxlines = boxlines.replace(title,   bcolors.BOLD+title+bcolors.ENDC)
-    return boxlines
-
-
 def check_filesdir(folder):
     folder_size = 0
     file_count = 0
@@ -67,39 +39,41 @@ def check_filesdir(folder):
 
 
 class Config(object):
-    """configuration class to specify system-wide collections and files-dir
+    """
+    Configuration class to specify system-wide collections and files-dir.
+
     """
     def __init__(self, file=CONFIG_FILE, data=DATA_DIR, cache=CACHE_DIR,
         bibtex=None, filesdir=None, gitdir=None, git=False, name=None, keygen=None):
-        """
+        """ Definition of the Config object 
+
 
         Args:
-            file:
+            file:     configuration filename path
             data:
-            cache:
-            bibtex:
-            filesdir:
-            gitdir:
+            cache:    cache directory for DOI requests
+            bibtex:   bibtex filename
+            filesdir: files directory (with pdfs)
+            gitdir: 
             git:
-            name:
+            name:     name of dataset (bibtex lib)
             keygen:
         """
 
-        self.keygen= keygen
-        self.file  = file
-        self.cname = name
-        self.data  = data
-        self.cache = cache
-        self.gitdir = gitdir  or data
-        self.git    = git
+        self.keygen   = keygen
+        self.file     = file
+        self.cname    = name
+        self.data     = data
+        self.cache    = cache
+        self.gitdir   = gitdir  or data
+        self.git      = git
         self.filesdir = filesdir or os.path.join(data, 'files')
-        self.bibtex = bibtex  or os.path.join(data, 'papers.bib')
+        self.bibtex   = bibtex  or os.path.join(data, 'papers.bib')
 
     def collections(self):
         files = []
         for root, dirs, files in os.walk(os.path.dirname(self.bibtex)):
             break
-        # return sorted(f[:-4] for f in files if f.endswith('.bib'))
         return sorted(f for f in files if f.endswith('.bib'))
 
     def save(self):
@@ -127,14 +101,15 @@ class Config(object):
         self.bibtex = cfg.bibtex
         self.filesdir = cfg.filesdir
 
-
     def check_install(self):
         if not os.path.exists(self.cache):
             logger.info('make cache directory for DOI requests: '+self.cache)
             os.makedirs(self.cache)
 
-
+    # ==================================================================================================
     # make a git commit?
+    # This could be handle with a specific library of python to manage
+    # git repositories to encapsulate the methods.
     @property
     def _gitdir(self):
         return os.path.join(self.gitdir, '.git')
@@ -162,7 +137,10 @@ class Config(object):
         else:
             raise ValueError('git is not initialized in '+self.gitdir)
 
+    # =========================================================================================================
+
     def status(self, check_files=False, verbose=False):
+         
         title = 'Papers configuration ['+str(self.cname)+']' 
 
         lines = []
@@ -210,8 +188,7 @@ class Config(object):
             bstatus = ''
         lines.append(' * bibtex path: '+self.bibtex+bstatus)
 
-        return listlines(lines, fstatus, bstatus, title)
-
+        return boxed_status(lines, fstatus, bstatus, title)
 
 
 config = Config()
@@ -267,12 +244,10 @@ def checksum(fname):
     return hash_bytestr_iter(file_as_blockiter(open(fname, 'rb')), hashlib.sha256())
 
 
-
-# move / copy
 def move(f1, f2, copy=False, interactive=True):
     dirname = os.path.dirname(f2)
     if dirname and not os.path.exists(dirname):
-        logger.info('create directory: '+dirname)
+        logger.info('Create directory: '+dirname)
         os.makedirs(dirname)
     if f1 == f2:
         logger.info('dest is identical to src: '+f1)
