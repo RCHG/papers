@@ -13,7 +13,7 @@ class bcol:
     ULINE   = '\033[4m'
 
 def read_journal_abbrv(journal):
-    with open('/usr/local/share/pubs/journalList_dots.csv', mode='r') as infile:
+    with open('/usr/local/share/papers/journalList_dots.csv', mode='r') as infile:
         reader = csv.reader(infile, delimiter=';')
         abbrev = {rows[0]:rows[1] for rows in reader}
     if journal in abbrev.keys():
