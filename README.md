@@ -1,6 +1,3 @@
-![travis](https://travis-ci.org/perrette/papers.svg?branch=master)
-[![Coverage Status](https://coveralls.io/repos/github/perrette/papers/badge.svg?branch=master)](https://coveralls.io/github/perrette/papers?branch=master)
-[![python](https://img.shields.io/badge/python-2.7%2C%203.5-blue.svg)]()
 <!-- [![PyPI version](https://badge.fury.io/py/papers.svg)](https://badge.fury.io/py/papers) -->
 <!-- [![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/perrette/papers/master/LICENSE) -->
 
@@ -19,8 +16,9 @@ Here you have a list of the changes I have implemented (below you have the origi
 | *27/Dec/2020*  | Added a box with extra information on list.                                                                                        |
 | *27/Dec/2020*  | Added a name field to config files to described the specific bibtex library used                                                   |
 | *31/Dec/2020*  | Added to config files the setting of keygen                                                                                        |
-| *10/Jan/2020*  | Added to journal abbreviations (currently user has to download from JabRef repository and copy at /usr/local/                      |
-|                |                                                                                                                                    |
+| *10/Jan/2020*  | Added to journal abbreviations (currently user has to download from JabRef repository and copy at /usr/local/share/papers/         |
+                                                                                                                                    
+                                                                                                                                                 
 
 # papers [ INFO from github user [perrette](https://github.com/perrette) ]
 
@@ -32,7 +30,7 @@ Command-line tool to manage bibliography (pdfs + bibtex)
 Motivation
 ----------
 This project is an attempt to create a light-weight,
-command-line bibliography managenent tool. Aims:
+command-line bibliography management tool. Aims:
 
 - maintain a PDF library (with appropriate naming)
 - maintain one or several bibtex-compatible collections, linked to PDFs
@@ -49,6 +47,7 @@ Dependencies
 - [rapidfuzz (0.2.0)](https://github.com/rhasspy/rapidfuzz) : calculate score to sort crossref requests
 - [unidecode (0.04.21)](https://github.com/avian2/unidecode) : replace unicode with ascii equivalent
 - [six](http://pythonhosted.org/six): python 2-3 compatibility
+
 
 Install
 -------
