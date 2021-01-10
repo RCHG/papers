@@ -4,10 +4,12 @@
 
 # IMPORTANT
 
-This library has been forked from [perrette](https://github.com/perrette/papers) to make it working better for my personal uses and, eventually, contribute to the project. The main credit is for the **author of the library (https://github.com/perrette)**.
-Here you have a list of the changes I have implemented (below you have the original papers information). Below you can read the README of the original
-author of the library. My main motivation to update this library is because the alternative (pubs) is a bit slow and I prefer to have a library 
-based on a single bibtex file rather than the approach of pubs of one bibtex per PDF. Although, pubs has evolved and it has nice features and a well organized code.
+This library has been forked from [perrette](https://github.com/perrette/papers) to make it more adapted to my personal needs and, eventually, contribute to the project. The main credit is for the **author of the library (https://github.com/perrette)**.
+
+Here you have a list of the changes I am implementing (below you have the original papers README information from the original author of the library).
+
+My main motivation to update this library is because the alternative (pubs) is a bit slow and I prefer to have a library  based on a single bibtex 
+file rather than the approach of pubs of one bibtex per PDF. Although, pubs has evolved and it has nice features and a well organized code.
 
 
 ## Changes
