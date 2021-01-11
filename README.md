@@ -23,7 +23,7 @@ file rather than the approach of pubs of one bibtex per PDF. Although, pubs has 
 | *31/Dec/2020*  | Added to config files the setting of keygen                                                                                        |
 | *10/Jan/2020*  | Added to journal abbreviations (currently user has to download from JabRef repository and copy at /usr/local/share/papers/         |
 | *10/Jan/2020*  | New command list -ls to show journal abbreviated rather than DOI.                                                                  |
-                                                                                                                                                  
+| *11/Jan/2020*  | New command open --key to open a file associated to a bibtex keyword in bibtex file.                                               |
 
 # papers [ INFO from github user [perrette](https://github.com/perrette) ]
 
