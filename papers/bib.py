@@ -926,7 +926,7 @@ def main():
             config.gitinit()
 
         if o.local:
-            logger.info('save local config file: '+local_config)
+            logger.info('Save local config file: '+local_config)
             config.file = local_config
         else:
             config.file = global_config
@@ -1156,6 +1156,81 @@ def main():
             my.rename_entries_files(o.copy)
 
         savebib(my, o)
+
+    # open
+    # =============
+    openp = subparsers.add_parser('open', description='open file of an entry',
+        parents=[cfg])
+    grp = openp.add_argument_group('pdf') 
+    grp.add_argument('--key', nargs='+')
+    grp.add_argument('--num', nargs="+")
+
+    def opencmd(o):
+        import fnmatch                              # unix-like match
+        my = Biblio.load(o.bibtex, o.filesdir)
+        entries = my.db.entries
+        total_entries = len(entries)
+
+        def match(word, target, fuzzy=False, substring=False):
+            if isinstance(target, list):
+                return any([match(word, t, fuzzy, substring) for t in target])
+
+            if fuzzy:
+                res = fuzz.token_set_ratio(word, target, score_cutoff=o.fuzzy_ratio) > o.fuzzy_ratio
+            elif substring:
+                res = target.lower() in word.lower()
+            else:
+                res = fnmatch.fnmatch(word.lower(), target.lower())
+
+
+            return res # if not o.invert else not res
+
+
+        def open_file_num(flist, numfile):
+            fname = flist[numfile].split(':')[1]
+            ftype = flist[numfile].split(':')[2]
+
+            print("Opening the file ", fname, " of type ", ftype)
+            sp.Popen(["xdg-open", fname])
+
+            return
+
+        if o.num:
+            try:
+                numvalues = [ int(a)-1 for a in o.num]
+            except:
+                numvalues = []
+        else:
+            numvalues = []
+
+        if len(numvalues)==0:
+            numvalues = [-1]
+                
+        if o.key:
+            entries = [e for e in entries if 'ID' in e and match(e['ID'], o.key)]
+            if len(entries)==0:
+                print("It is not found ",o.key, " in bibtex file")
+            elif len(entries)>1:
+                print("It is weird we found ",o.key, " several times in bibtex file")
+            else:
+                e = entries[0]
+                nfiles =len(e['file'].split(';'))
+                if nfiles > 0:
+                    for numfile in numvalues:
+                        if numfile > nfiles:
+                            print("The bibtex entry for ", o.key, " has least than ", numfile+1, " filenames")
+                        elif numfile==-1 and nfiles>1:
+                            numfile=0
+                            print("There are several files for ", o.key)
+                            print("... but without option --num. It is selected the 1st")
+                            open_file_num(e['file'].split(';'), numfile)
+                        else:
+                            open_file_num(e['file'].split(';'), numfile)
+
+        else:
+            print("Please specific a unique keyword in bibtex file.")
+
+        return
 
     # list
     # ======
@@ -1448,6 +1523,8 @@ def main():
 
     if o.cmd == 'add':
         check_install() and addcmd(o)
+    elif o.cmd == 'open':
+        check_install() and opencmd(o)
     elif o.cmd == 'check':
         check_install() and checkcmd(o)
     elif o.cmd == 'filecheck':
