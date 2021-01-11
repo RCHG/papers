@@ -1,5 +1,7 @@
 import papers.boxea as boxea
 import csv
+import pickle
+# import pandas as pd
 
 class bcol:
     # https://stackoverflow.com/a/287944/2192272
@@ -12,7 +14,33 @@ class bcol:
     BOLD    = '\033[1m'
     ULINE   = '\033[4m'
 
+
+# Here we read a csv but it might be a bit slow.
+# Maybe there are other options. A solution will be
+# create a option to replace journal name by the
+# abbrev directly in the bibtex and not on the fly
+# for visualization.
+
 def read_journal_abbrv(journal):
+    fabbrev = '/usr/local/share/papers/journalList_dots.p'
+    abbrev = pickle.load( open( fabbrev, "rb" ) )   
+    if journal in abbrev.keys():
+        journal_abbrev = abbrev[journal]
+    else:
+        journal_abbrev = journal
+
+    return journal_abbrev
+        
+def read_journal_abbrv_csv(journal):
+    with open('/usr/local/share/papers/journalList_dots.csv', mode='r') as infile:
+        reader = csv.reader(infile, delimiter=';')
+        for row in reader:
+            if row[0]==journal:
+                return row[1]
+                
+        return journal
+        
+def read_journal_abbrv_dic(journal):
     with open('/usr/local/share/papers/journalList_dots.csv', mode='r') as infile:
         reader = csv.reader(infile, delimiter=';')
         abbrev = {rows[0]:rows[1] for rows in reader}
@@ -22,6 +50,7 @@ def read_journal_abbrv(journal):
         journal_abbrev = journal
 
     return journal_abbrev
+
 
 def boxed_status(lines, fstatus, bstatus, title):
     """boxedlist: from a list of lines it returns

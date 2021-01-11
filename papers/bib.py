@@ -3,7 +3,6 @@ from __future__ import print_function
 import os, json, sys
 import logging
 # logger.basicConfig(level=logger.INFO)
-import argparse
 import subprocess as sp
 import shutil
 import bisect
@@ -25,10 +24,12 @@ from papers.extract import fetch_bibtex_by_fulltext_crossref, fetch_bibtex_by_do
 from papers.encoding import latex_to_unicode, unicode_to_latex, unicode_to_ascii
 from papers.encoding import parse_file, format_file, standard_name, family_names, format_entries
 
+
 # from papers.config import config, bcolors, checksum, move
 
 from papers.config import config, checksum, move
 from papers.pretty import boxed_list, bcol, read_journal_abbrv
+from papers.parsercli import cli_parser
 
 from papers.duplicate import check_duplicates, resolve_duplicates, conflict_resolution_on_insert, entry_diff
 from papers.duplicate import search_duplicates, list_duplicates, list_uniques, merge_files, edit_entries
@@ -38,9 +39,16 @@ from papers.duplicate import search_duplicates, list_duplicates, list_uniques, m
 # KEY GENERATION
 # ==============
 
-NAUTHOR = 1
-NTITLE = 0
-
+settings = { 'NAUTHOR': 1
+            , 'NTITLE' : 0
+            , 'FUZZY_RATIO' : 80
+            # should be conservative (used in papers add)
+            , 'DEFAULT_SIMILARITY': 'FAIR'
+            , 'EXACT_DUPLICATES': 104
+            , 'GOOD_DUPLICATES': 103
+            , 'FAIR_DUPLICATES': 102
+            , 'PARTIAL_DUPLICATES': 101
+            , 'FUZZY_DUPLICATES': 100}
 
 def append_abc(key, keys=[]):
     """
@@ -75,7 +83,7 @@ def append_abc(key, keys=[]):
     return Key
 
 
-def generate_key(entry, nauthor=NAUTHOR, ntitle=NTITLE, minwordlen=3,
+def generate_key(entry, nauthor=settings['NAUTHOR'], ntitle=settings['NTITLE'], minwordlen=3,
                  mintitlen=4, keys=None, between="_"):
     """
     Generate a bibtex-key based on family names of the authors. It is included -etal.
@@ -151,23 +159,13 @@ def entry_id(e):
 
 
 
-FUZZY_RATIO = 80
-
-# should be conservative (used in papers add)
-DEFAULT_SIMILARITY = 'FAIR'
-
-EXACT_DUPLICATES = 104
-GOOD_DUPLICATES = 103
-FAIR_DUPLICATES = 102
-PARTIAL_DUPLICATES = 101
-FUZZY_DUPLICATES = 100
 
 
 def compare_entries(e1, e2, fuzzy=False):
     """assess two entries' similarity
     """
     if e1 == e2:
-        return EXACT_DUPLICATES
+        return settings['EXACT_DUPLICATES']
 
     id1 = entry_id(e1)
     id2 = entry_id(e2)
@@ -175,10 +173,10 @@ def compare_entries(e1, e2, fuzzy=False):
     logger.debug('{} ?= {}'.format(id1, id2))
 
     if id1 == id2:
-        score = GOOD_DUPLICATES
+        score = settings['GOOD_DUPLICATES']
 
     elif all([f1==f2 for f1, f2 in zip(id1, id2) if f1 and f2]): # all defined fields agree
-        score = FAIR_DUPLICATES
+        score = settings['FAIR_DUPLICATES']
 
     elif any([f1==f2 for f1, f2 in zip(id1, id2) if f1 and f2]): # some of the defined fields agree
         score = PARTIAL_DUPLICATES
@@ -194,20 +192,20 @@ def compare_entries(e1, e2, fuzzy=False):
 
     return score
 
-def are_duplicates(e1, e2, similarity=DEFAULT_SIMILARITY, fuzzy_ratio=FUZZY_RATIO):
+def are_duplicates(e1, e2, similarity=settings['DEFAULT_SIMILARITY'], fuzzy_ratio=settings['FUZZY_RATIO']):
     level = dict(
-        EXACT = EXACT_DUPLICATES,
-        GOOD = GOOD_DUPLICATES,
-        FAIR = FAIR_DUPLICATES,
-        PARTIAL = PARTIAL_DUPLICATES,
-        FUZZY = FUZZY_DUPLICATES,
+        EXACT = settings['EXACT_DUPLICATES'],
+        GOOD = settings['GOOD_DUPLICATES'],
+        FAIR = settings['FAIR_DUPLICATES'],
+        PARTIAL = settings['PARTIAL_DUPLICATES'],
+        FUZZY = settings['FUZZY_DUPLICATES'],
         )
     try: 
         target = level[similarity]
     except KeyError:
         raise ValueError('similarity must be one of EXACT, GOOD, FAIR, PARTIAL, FUZZY')
 
-    score = compare_entries(e1, e2, fuzzy=level==FUZZY_DUPLICATES)
+    score = compare_entries(e1, e2, fuzzy=level==settings['FUZZY_DUPLICATES'])
     logger.debug('score: {}, target: {}, similarity: {}'.format(score, target, similarity))
     return score >= target
 
@@ -251,7 +249,7 @@ class DuplicateKeyError(ValueError):
 class Biblio(object):
     """main config
     """
-    def __init__(self, db=None, filesdir=None, key_field='ID', nauthor=NAUTHOR, ntitle=NTITLE, similarity=DEFAULT_SIMILARITY):
+    def __init__(self, db=None, filesdir=None, key_field='ID', nauthor=settings['NAUTHOR'], ntitle=settings['NTITLE'], similarity=settings['DEFAULT_SIMILARITY']):
         self.filesdir = filesdir
         # assume an already sorted list
         self.key_field = key_field
@@ -662,11 +660,11 @@ class Biblio(object):
             e['ID'] = unicode_to_ascii(e['ID'])
 
         if interactive and e_old != e:
-            print(bcol.BLUE+'*** UPDATE ***'+bcol.ENDC)
+            print('\n'+ bcol.BLUE+'*** UPDATE ***'+bcol.ENDC)
             print(entry_diff(e_old, e))
 
-            if raw_input('update ? [Y/n] or [Enter] ').lower() not in ('', 'y'):
-                logger.info('cancel changes')
+            if raw_input(' update ? [Y/n] or [Enter] ').lower() not in ('', 'y'):
+                logger.info(' cancel changes')
                 e.update(e_old)
                 for k in list(e.keys()):
                     if k not in e_old:
@@ -787,7 +785,8 @@ def entry_filecheck(e, delete_broken=False, fix_mendeley=False,
 def main():
 
     # Here it has loaded a module that defines a config object and now
-    # we changed one of the values of the config object depending on the current dir.
+    # we changed one of the values of the config object depending on the
+    # current dir.
 
     global_config = config.file
     local_config = '.papersconfig.json'
@@ -801,35 +800,8 @@ def main():
         logger.debug('load config from: '+config.file)
         config.load()
 
-    parser = argparse.ArgumentParser(description='library management tool')
-    subparsers = parser.add_subparsers(dest='cmd')
+    parser = cli_parser(config, settings)
 
-    # configuration (re-used everywhere)
-    # =============
-    loggingp = argparse.ArgumentParser(add_help=False)
-    grp = loggingp.add_argument_group('logging level (default warn)')
-    egrp = grp.add_mutually_exclusive_group()
-    egrp.add_argument('--debug', action='store_const', dest='logging_level', const=logging.DEBUG)
-    egrp.add_argument('--info', action='store_const', dest='logging_level', const=logging.INFO)
-    egrp.add_argument('--warn', action='store_const', dest='logging_level', const=logging.WARN)
-    egrp.add_argument('--error', action='store_const', dest='logging_level', const=logging.ERROR)
-
-    cfg = argparse.ArgumentParser(add_help=False, parents=[loggingp])
-    grp = cfg.add_argument_group('config')
-    grp.add_argument('--filesdir', default=config.filesdir, 
-        help='files directory (default: %(default)s)')
-    grp.add_argument('--bibtex', default=config.bibtex,
-        help='bibtex database (default: %(default)s)')
-    grp.add_argument('--dry-run', action='store_true', 
-        help='no PDF renaming/copying, no bibtex writing on disk (for testing)')
-
-    # status
-    # ======
-    statusp = subparsers.add_parser('status', 
-        description='view install status',
-        parents=[cfg])
-    statusp.add_argument('--no-check-files', action='store_true', help='faster, less info')
-    statusp.add_argument('-v','--verbose', action='store_true', help='app status info')
 
     def statuscmd(o):
         if o.bibtex:
@@ -838,38 +810,6 @@ def main():
             config.filesdir = o.filesdir        
         print(config.status(check_files=not o.no_check_files, verbose=o.verbose))
         
-
-    # install
-    # =======
-
-    installp = subparsers.add_parser('install', description='setup or update papers install',
-        parents=[cfg])
-    installp.add_argument('--reset-paths', action='store_true') 
-    # egrp = installp.add_mutually_exclusive_group()
-    installp.add_argument('--local', action='store_true', 
-        help="""save config file in current directory (global install by default). 
-        This file will be loaded instead of the global configuration file everytime 
-        papers is executed from this directory. This will affect the default bibtex file, 
-        the files directory, as well as the git-tracking option. Note this option does
-        not imply anything about the actual location of bibtex file and files directory.
-        """)
-    installp.add_argument('--git', action='store_true', 
-        help="""Track bibtex files with git. 
-        Each time the bibtex is modified, a copy of the file is saved in a git-tracked
-        global directory (see papers status), and committed. Note the original bibtex name is 
-        kept, so that different files can be tracked simultaneously, as long as the names do
-        not conflict. This option is mainly useful for backup purposes (local or remote).
-        Use in combination with `papers git`'
-        """) 
-    installp.add_argument('--gitdir', default=config.gitdir, help='default: %(default)s')
-
-    grp = installp.add_argument_group('status')
-    # grp.add_argument('-l','--status', action='store_true')
-    # grp.add_argument('-v','--verbose', action='store_true')
-    # grp.add_argument('-c','--check-files', action='store_true')
-    grp.add_argument('--no-check-files', action='store_true', help='faster, less info')
-    # grp.add_argument('-v','--verbose', action='store_true', help='app status info')
-
 
     def installcmd(o):
 
@@ -959,46 +899,6 @@ def main():
     #        config.bibtex = o.bibtex
     #        config.gitcommit()
 
-    # add
-    # ===
-    addp = subparsers.add_parser('add', description='add PDF(s) or bibtex(s) to library',
-        parents=[cfg])
-    addp.add_argument('file', nargs='+')
-    # addp.add_argument('-f','--force', action='store_true', help='disable interactive')
-
-    grp = addp.add_argument_group('duplicate check')
-    grp.add_argument('--no-check-duplicate', action='store_true', 
-        help='disable duplicate check (faster, create duplicates)')
-    grp.add_argument('--no-merge-files', action='store_true', 
-        help='distinct "file" field considered a conflict, all other things being equal')
-    grp.add_argument('-u', '--update-key', action='store_true', 
-        help='update added key according to any existing duplicate (otherwise an error might be raised on identical insert key)')
-    # grp.add_argument('-f', '--force', action='store_true', help='no interactive')
-    grp.add_argument('-m', '--mode', default='i', choices=['u', 'U', 'o', 's', 'r', 'i','a'],
-        help='''if duplicates are found, the default is to start an (i)nteractive dialogue, 
-        unless "mode" is set to (r)aise, (s)skip new, (u)pdate missing, (U)pdate with new, (o)verwrite completely.
-        ''')
-
-    grp = addp.add_argument_group('directory scan')
-    grp.add_argument('--recursive', action='store_true', 
-        help='accept directory as argument, for recursive scan \
-        of .pdf files (bibtex files are ignored in this mode')
-    grp.add_argument('--ignore-errors', action='store_true', 
-        help='ignore errors when adding multiple files')
-
-    grp = addp.add_argument_group('pdf metadata')
-    grp.add_argument('--no-query-doi', action='store_true', help='do not attempt to parse and query doi')
-    grp.add_argument('--no-query-fulltext', action='store_true', help='do not attempt to query fulltext in case doi query fails')
-    grp.add_argument('--scholar', action='store_true', help='use google scholar instead of crossref')
-
-    grp = addp.add_argument_group('attached files')
-    grp.add_argument('-a','--attachment', nargs='+', help=argparse.SUPPRESS) #'supplementary material')
-    grp.add_argument('-r','--rename', action='store_true', 
-        help='rename PDFs according to key')
-    grp.add_argument('-c','--copy', action='store_true', 
-        help='copy file instead of moving them')
-
-
 
     def addcmd(o):
 
@@ -1047,40 +947,6 @@ def main():
 
         savebib(my, o)
 
-
-    # check
-    # =====
-    checkp = subparsers.add_parser('check', description='check and fix entries', 
-        parents=[cfg])
-    checkp.add_argument('-k', '--keys', nargs='+', help='apply check on this key subset')
-    checkp.add_argument('-f','--force', action='store_true', help='do not ask')
-
-    grp = checkp.add_argument_group('entry key')
-    grp.add_argument('--fix-key', action='store_true', help='fix key based on author name and date (in case missing or digit)')
-    grp.add_argument('--key-ascii', action='store_true', help='replace keys unicode character with ascii')
-    grp.add_argument('--auto-key', action='store_true', help='new, auto-generated key for all entries')
-    grp.add_argument('--nauthor', type=int, default=NAUTHOR, help='number of authors to include in key (default:%(default)s)')
-    grp.add_argument('--ntitle', type=int, default=NTITLE, help='number of title words to include in key (default:%(default)s)')
-    # grp.add_argument('--ascii-key', action='store_true', help='replace unicode characters with closest ascii')
-    grp.add_argument('-t','--tag', type=str, default='no-tag', help='Add a tag/keyword to an entry of the bibtex file.')
-
-
-    grp = checkp.add_argument_group('crossref fetch and fix')
-    grp.add_argument('--fix-doi', action='store_true', help='fix doi for some common issues (e.g. DOI: inside doi, .received at the end')
-    grp.add_argument('--fetch', action='store_true', help='fetch metadata from doi and update entry')
-    grp.add_argument('--fetch-all', action='store_true', help='fetch metadata from title and author field and update entry (only when doi is missing)')
-
-    grp = checkp.add_argument_group('names')
-    grp.add_argument('--format-name', action='store_true', help='author name as family, given, without brackets')
-    grp.add_argument('--encoding', choices=['latex','unicode'], help='bibtex field encoding')
-
-    grp = checkp.add_argument_group('merge/conflict')
-    grp.add_argument('--duplicates',action='store_true', help='solve duplicates')
-    grp.add_argument('-m', '--mode', default='i', choices=list('ims'), help='''(i)interactive mode by default, otherwise (m)erge or (s)kip failed''')
-    # grp.add_argument('--ignore', action='store_true', help='ignore unresolved conflicts')
-    # checkp.add_argument('--merge-keys', nargs='+', help='only merge remove / merge duplicates')
-    # checkp.add_argument('--duplicates',action='store_true', help='remove / merge duplicates')
-
     def checkcmd(o):
         my = Biblio.load(o.bibtex, o.filesdir)
 
@@ -1109,41 +975,6 @@ def main():
         savebib(my, o)
 
 
-    # filecheck
-    # =====
-    filecheckp = subparsers.add_parser('filecheck', description='check attached file(s)',
-        parents=[cfg])
-    # filecheckp.add_argument('-f','--force', action='store_true', 
-    #     help='do not ask before performing actions')
-
-    # action on files
-    filecheckp.add_argument('-r','--rename', action='store_true', 
-        help='rename files')
-    filecheckp.add_argument('-c','--copy', action='store_true', 
-        help='in combination with --rename, keep a copy of the file in its original location')
-
-    # various metadata and duplicate checks
-    filecheckp.add_argument('--metadata-check', action='store_true', 
-        help='parse pdf metadata and check against metadata (currently doi only)')
-
-    filecheckp.add_argument('--hash-check', action='store_true', 
-        help='check file hash sum to remove any duplicates')
-
-    filecheckp.add_argument('-d', '--delete-broken', action='store_true', 
-        help='remove file entry if the file link is broken')
-
-    filecheckp.add_argument('--fix-mendeley', action='store_true', 
-        help='fix a Mendeley bug where the leading "/" is omitted.')
-
-    filecheckp.add_argument('--force', action='store_true', help='no interactive prompt, strictly follow options') 
-    # filecheckp.add_argument('--search-for-files', action='store_true',
-    #     help='search for missing files')
-    # filecheckp.add_argument('--searchdir', nargs='+',
-    #     help='search missing file link for existing bibtex entries, based on doi')
-    # filecheckp.add_argument('-D', '--delete-free', action='store_true', 
-        # help='delete file which is not associated with any entry')
-    # filecheckp.add_argument('-a', '--all', action='store_true', help='--hash and --meta')
-
     def filecheckcmd(o):
         my = Biblio.load(o.bibtex, o.filesdir)
 
@@ -1156,14 +987,6 @@ def main():
             my.rename_entries_files(o.copy)
 
         savebib(my, o)
-
-    # open
-    # =============
-    openp = subparsers.add_parser('open', description='open file of an entry',
-        parents=[cfg])
-    grp = openp.add_argument_group('pdf') 
-    grp.add_argument('--key', nargs='+')
-    grp.add_argument('--num', nargs="+")
 
     def opencmd(o):
         import fnmatch                              # unix-like match
@@ -1231,53 +1054,6 @@ def main():
             print("Please specific a unique keyword in bibtex file.")
 
         return
-
-    # list
-    # ======
-    listp = subparsers.add_parser('list', description='list (a subset of) entries',
-        parents=[cfg])
-
-    mgrp = listp.add_mutually_exclusive_group()
-    mgrp.add_argument('--strict', action='store_true', help='exact matching - instead of substring (only (*): title, author, abstract)')
-    mgrp.add_argument('--fuzzy', action='store_true', help='fuzzy matching - instead of substring (only (*): title, author, abstract)')
-
-    listp.add_argument('--fuzzy-ratio', type=int, default=FUZZY_RATIO, help='threshold for fuzzy matching of title, author, abstract (default:%(default)s)')
-    listp.add_argument('--similarity', choices=['EXACT','GOOD','FAIR','PARTIAL','FUZZY'], default=DEFAULT_SIMILARITY, help='duplicate testing (default:%(default)s)')
-    listp.add_argument('--invert', action='store_true')
-
-    grp = listp.add_argument_group('search')
-    grp.add_argument('-a','--author', nargs='+', help='any of the authors (*)')
-    grp.add_argument('--first-author', nargs='+')
-    grp.add_argument('-y','--year', nargs='+')
-    grp.add_argument('-t','--title', help='title (*)')
-    grp.add_argument('--abstract', help='abstract (*)')
-    grp.add_argument('--key', nargs='+')
-    grp.add_argument('--doi', nargs='+')
-
-
-    grp = listp.add_argument_group('check')
-    grp.add_argument('--duplicates-key', action='store_true', help='list key duplicates only')
-    grp.add_argument('--duplicates-doi', action='store_true', help='list doi duplicates only')
-    grp.add_argument('--duplicates-tit', action='store_true', help='list tit duplicates only')
-    grp.add_argument('--duplicates', action='store_true', help='list all duplicates (see --similarity)')
-    grp.add_argument('--has-file', action='store_true')
-    grp.add_argument('--no-file', action='store_true')
-    grp.add_argument('--broken-file', action='store_true')
-    grp.add_argument('--review-required', action='store_true', help='suspicious entry (invalid dois, missing field etc.)')
-
-    grp = listp.add_argument_group('formatting')
-    mgrp = grp.add_mutually_exclusive_group()
-    mgrp.add_argument('-k','--key-only', action='store_true')
-    mgrp.add_argument('-l', '--one-liner', action='store_true', help='one liner')
-    mgrp.add_argument('-ls', '--one-liner-short', action='store_true', help='one liner short')
-    mgrp.add_argument('-f', '--field', nargs='+', help='specific field(s) only')
-    grp.add_argument('--no-key', action='store_true')
-
-    grp = listp.add_argument_group('action on listed results (pipe)')
-    grp.add_argument('--delete', action='store_true')
-    grp.add_argument('--edit', action='store_true', help='interactive edit text file with entries, and re-insert them')
-    grp.add_argument('--fetch', action='store_true', help='fetch and fix metadata')
-    # grp.add_argument('--merge-duplicates', action='store_true')
 
     def listcmd(o):
         import fnmatch                              # unix-like match
@@ -1434,43 +1210,17 @@ def main():
             print(format_entries(entries))
 
 
-    # doi
-    # ===
-
-    doip = subparsers.add_parser('doi', description='parse DOI from PDF')
-    doip.add_argument('pdf')
-    doip.add_argument('--image', action='store_true', help='convert to image and use tesseract instead of pdftotext')
-    
     def doicmd(o):
         print(extract_pdf_doi(o.pdf, image=o.image))
 
-    # fetch
-    # =====   
-    fetchp = subparsers.add_parser('fetch', description='fetch bibtex from DOI')
-    fetchp.add_argument('doi')
-
+    
     def fetchcmd(o):
         print(fetch_bibtex_by_doi(o.doi))
 
 
-    # extract
-    # ========
-    extractp = subparsers.add_parser('extract', description='extract pdf metadata', parents=[loggingp])
-    extractp.add_argument('pdf')
-    extractp.add_argument('-n', '--word-count', type=int, default=200)
-    extractp.add_argument('--fulltext', action='store_true', help='fulltext only (otherwise DOI-based)')
-    extractp.add_argument('--scholar', action='store_true', help='use google scholar instead of default crossref for fulltext search')
-    extractp.add_argument('--image', action='store_true', help='convert to image and use tesseract instead of pdftotext')
-
     def extractcmd(o):
         print(extract_pdf_metadata(o.pdf, search_doi=not o.fulltext, search_fulltext=True, scholar=o.scholar, minwords=o.word_count, max_query_words=o.word_count, image=o.image))
         # print(fetch_bibtex_by_doi(o.doi))
-
-    # *** Pure OS related file checks ***
-
-    # undo
-    # ====
-    undop = subparsers.add_parser('undo', parents=[cfg])
 
     def undocmd(o):
         back = backupfile(o.bibtex)
@@ -1483,12 +1233,6 @@ def main():
         savebib(None, o)
 
         
-
-    # git
-    # ===
-    gitp = subparsers.add_parser('git', description='git subcommand')
-    gitp.add_argument('gitargs', nargs=argparse.REMAINDER)
-
 
     def gitcmd(o):
         try:
